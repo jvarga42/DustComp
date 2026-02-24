@@ -292,7 +292,8 @@ def get_color_label(kappa_label):
     #new_label = new_label.replace('Fo_Zeidler','Forsterite').replace('En_Zeidler','Enstatite').replace('En_Jaeger','Enstatite').replace('_Jae','').replace('_Dor','').replace('_MH','').replace('.Combined','')
 
 def plot_fit(output_path,wl,fluxdata,fluxerr,model_fluxes,kappa_label_list,plot_title,
-             param_dic,fit_mode,xlim=[],wl_filter=[],leg_loc='best',leg_ncol=3):
+             param_dic,fit_mode,xlim=[],wl_filter=[],leg_loc='best',leg_ncol=3,
+             axr_ylim=[np.nan,np.nan]):
     #fig, ((ax)) = plt.subplots(1, 1, sharey=False, sharex=False,figsize=(8,6))
     fig = plt.figure(figsize=(8,6.5)) #width, height
     gs1 = GridSpec(2, 1, height_ratios=[3.5,1],bottom=0.35,top=0.94,hspace=0.02)
@@ -378,6 +379,11 @@ def plot_fit(output_path,wl,fluxdata,fluxerr,model_fluxes,kappa_label_list,plot_
     axr.set_axisbelow(False)
     if len(xlim) == 2:
         axr.set_xlim(xlim)
+    if ~np.isnan(axr_ylim[0]):
+        axr.set_ylim(bottom=axr_ylim[0])
+    if ~np.isnan(axr_ylim[1]):
+        axr.set_ylim(top=axr_ylim[1])
+
     #leg2 = axr.legend(handles=dust_comp_line_lst,loc='lower center',bbox_to_anchor=(0.5, -0.07),
     #                bbox_transform=fig.transFigure, ncol=3,fontsize=12)
     
