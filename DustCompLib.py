@@ -208,7 +208,7 @@ def get_color_label(kappa_label):
         ['Fo_Servoin', 'Forsterite', 'lime'],
         ['Koike_Fo100', 'Forsterite', 'lime'],
         ['Fors_aerosol', 'Forsterite', 'lime'],
-        ['En_Zeidler','Enstatirte','orangered'],
+        ['En_Zeidler','Enstatite','orangered'],
         ['Ens_Zeidler','Enstatite','orangered'],
         ['En_Jaeger','Enstatite','orangered'],
         ['Ens_Jaeger','Enstatite','orangered'],
