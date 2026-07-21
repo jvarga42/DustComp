@@ -1,0 +1,77 @@
+Chi2r : 3.6524473426435544
+Fit method : dynesty
+niter : 18024
+----------------
+Dust mass fractions (%)
+Q_Am_Mgol_Jae_DHS_f0.70_rv0.1              0.000 (-  0.000/+  0.000)
+Q_Am_Mgol_Jae_DHS_f0.70_rv2.0              0.000 (-  0.000/+  0.000)
+Q_Am_Mgol_Jae_DHS_f0.70_rv5.0             18.858 (-  0.000/+  0.000)
+Q_Fo_Suto_DHS_f0.99_rv0.1                  1.152 (-  0.000/+  0.000)
+Q_Fo_Suto_DHS_f0.99_rv2.0                  7.625 (-  0.000/+  0.000)
+Q_Am_Mgpyr_Dor_DHS_f0.70_rv0.1             0.515 (-  0.000/+  0.000)
+Q_Am_Mgpyr_Dor_DHS_f0.70_rv2.0             7.435 (-  0.000/+  0.000)
+Q_Am_Mgpyr_Dor_DHS_f0.70_rv5.0            44.309 (-  0.000/+  0.000)
+Q_Ens_Jaeger_DHS_f0.99_rv0.1               1.709 (-  0.000/+  0.000)
+Q_Ens_Jaeger_DHS_f0.99_rv2.0               8.185 (-  0.000/+  0.000)
+Q_Am_Silica_Kit_DHS_f0.70_rv0.1            0.119 (-  0.000/+  0.000)
+Q_Am_Silica_Kit_DHS_f0.70_rv2.0            0.000 (-  0.000/+  0.000)
+Q_Am_Silica_Kit_DHS_f0.70_rv5.0            0.000 (-  0.000/+  0.000)
+Q_Ann_Silica_Fabian_DHS_f0.99_rv0.1        2.550 (-  0.000/+  0.000)
+Q_Ann_Silica_Fabian_DHS_f0.99_rv2.0        7.543 (-  0.000/+  0.000)
+----------------
+Free parameters
+r_in: 0.1148219112 (--0.0803493761/+0.5761770120)
+T_dust_in: 1541.6432433036 (-891.9683768223/+-90.0632865890)
+q_dust: -0.3250954245 (-1.1083388718/+-0.2326583774)
+T_midplane_in: 369.1620742845 (-129.2161603839/+-38.8582449257)
+q_midplane: -0.5296974085 (-0.8394278854/+-0.1716868642)
+rim_width: 0.0051961772 (-0.0041176148/+-0.0019669385)
+T_rim_in: 1229.7157606244 (-339.3955149526/+251.7692233980)
+----------------
+Fixed parameters
+n_z: 1.000000000000000
+Q_Am_Mgol_Jae_DHS_f0.70_rv0.1: 0.000000000000000
+Q_Am_Mgol_Jae_DHS_f0.70_rv2.0: 0.000000000000000
+Q_Am_Mgol_Jae_DHS_f0.70_rv5.0: 0.000000195418760
+Q_Fo_Suto_DHS_f0.99_rv0.1: 0.000000011939620
+Q_Fo_Suto_DHS_f0.99_rv2.0: 0.000000079018876
+Q_Am_Mgpyr_Dor_DHS_f0.70_rv0.1: 0.000000005336083
+Q_Am_Mgpyr_Dor_DHS_f0.70_rv2.0: 0.000000077049395
+Q_Am_Mgpyr_Dor_DHS_f0.70_rv5.0: 0.000000459160614
+Q_Ens_Jaeger_DHS_f0.99_rv0.1: 0.000000017711967
+Q_Ens_Jaeger_DHS_f0.99_rv2.0: 0.000000084820758
+Q_Am_Silica_Kit_DHS_f0.70_rv0.1: 0.000000001230321
+Q_Am_Silica_Kit_DHS_f0.70_rv2.0: 0.000000000000000
+Q_Am_Silica_Kit_DHS_f0.70_rv5.0: 0.000000000000000
+Q_Ann_Silica_Fabian_DHS_f0.99_rv0.1: 0.000000026422673
+Q_Ann_Silica_Fabian_DHS_f0.99_rv2.0: 0.000000078164146
+r_out: 20.000000000000000
+q_rim: 0.000000000000000
+T_star: 3340.000000000000000
+r_star: 1.571319910843198
+n_r: 100.000000000000000
+n_rim: 10.000000000000000
+gap_width: 0.000000000000000
+r_gap: 0.000000000000000
+dscale: 40147673.572468839585781
+AV: 0.000000000000000
+----------------
+Input spectrum
+/allegro6/matisse/varga/YSO_spectra/JWST_MIRI/plots/rebinned_new2//XXCha_smoothed_rebinned.dat
+----------------
+Input opacity files
+Q_Am_Mgol_Jae_DHS_f0.70_rv0.1.dat
+Q_Am_Mgol_Jae_DHS_f0.70_rv2.0.dat
+Q_Am_Mgol_Jae_DHS_f0.70_rv5.0.dat
+Q_Fo_Suto_DHS_f0.99_rv0.1.dat
+Q_Fo_Suto_DHS_f0.99_rv2.0.dat
+Q_Am_Mgpyr_Dor_DHS_f0.70_rv0.1.dat
+Q_Am_Mgpyr_Dor_DHS_f0.70_rv2.0.dat
+Q_Am_Mgpyr_Dor_DHS_f0.70_rv5.0.dat
+Q_Ens_Jaeger_DHS_f0.99_rv0.1.dat
+Q_Ens_Jaeger_DHS_f0.99_rv2.0.dat
+Q_Am_Silica_Kit_DHS_f0.70_rv0.1.dat
+Q_Am_Silica_Kit_DHS_f0.70_rv2.0.dat
+Q_Am_Silica_Kit_DHS_f0.70_rv5.0.dat
+Q_Ann_Silica_Fabian_DHS_f0.99_rv0.1.dat
+Q_Ann_Silica_Fabian_DHS_f0.99_rv2.0.dat

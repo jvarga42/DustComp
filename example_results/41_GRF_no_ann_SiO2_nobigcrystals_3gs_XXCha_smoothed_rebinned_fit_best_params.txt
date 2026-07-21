@@ -1,0 +1,71 @@
+Chi2r : 8.143155662147985
+Fit method : dynesty
+niter : 18348
+----------------
+Dust mass fractions (%)
+MgOlivine0.1.Combined                      0.000 (-  0.000/+  0.000)
+MgOlivine2.0.Combined                      0.000 (-  0.000/+  0.000)
+MgOlivine5.0.Combined                     44.626 (-  0.000/+  0.000)
+Forsterite0.1.Combined                     0.000 (-  0.000/+  0.000)
+Forsterite2.0.Combined                    10.160 (-  0.000/+  0.000)
+MgPyroxene0.1.Combined                    16.171 (-  0.000/+  0.000)
+MgPyroxene2.0.Combined                     0.000 (-  0.000/+  0.000)
+MgPyroxene5.0.Combined                    17.650 (-  0.000/+  0.000)
+Enstatite0.1.Combined                      2.520 (-  0.000/+  0.000)
+Enstatite2.0.Combined                      4.146 (-  0.000/+  0.000)
+Silica0.1.Combined                         4.726 (-  0.000/+  0.000)
+Silica2.0.Combined                         0.000 (-  0.000/+  0.000)
+Silica5.0.Combined                         0.000 (-  0.000/+  0.000)
+----------------
+Free parameters
+r_in: 0.0903066864 (-0.0632495127/+0.7167877531)
+T_dust_in: 1315.1372340928 (-876.7657678448/+265.1168673576)
+q_dust: -0.4765737956 (-1.7655809978/+0.0196789215)
+T_midplane_in: 504.1365070651 (-242.3996419368/+311.6831346054)
+q_midplane: -0.6758565872 (-1.2892432725/+0.1404360635)
+rim_width: 0.0025774371 (-0.0020326000/+0.0068628386)
+T_rim_in: 1792.7625899262 (-850.0764276179/+-99.0300590047)
+----------------
+Fixed parameters
+n_z: 1.000000000000000
+MgOlivine0.1.Combined: 0.000000000000000
+MgOlivine2.0.Combined: 0.000000000000000
+MgOlivine5.0.Combined: 0.000010866867528
+Forsterite0.1.Combined: 0.000000000000000
+Forsterite2.0.Combined: 0.000002474162385
+MgPyroxene0.1.Combined: 0.000003937928423
+MgPyroxene2.0.Combined: 0.000000000000000
+MgPyroxene5.0.Combined: 0.000004298033015
+Enstatite0.1.Combined: 0.000000613752038
+Enstatite2.0.Combined: 0.000001009505018
+Silica0.1.Combined: 0.000001150951174
+Silica2.0.Combined: 0.000000000000000
+Silica5.0.Combined: 0.000000000000000
+r_out: 20.000000000000000
+q_rim: 0.000000000000000
+T_star: 3340.000000000000000
+r_star: 1.571319910843198
+n_r: 100.000000000000000
+n_rim: 10.000000000000000
+gap_width: 0.000000000000000
+r_gap: 0.000000000000000
+dscale: 40147673.572468839585781
+AV: 0.000000000000000
+----------------
+Input spectrum
+/allegro6/matisse/varga/YSO_spectra/JWST_MIRI/plots/rebinned_new2//XXCha_smoothed_rebinned.dat
+----------------
+Input opacity files
+MgOlivine0.1.Combined.Kappa
+MgOlivine2.0.Combined.Kappa
+MgOlivine5.0.Combined.Kappa
+Forsterite0.1.Combined.Kappa
+Forsterite2.0.Combined.Kappa
+MgPyroxene0.1.Combined.Kappa
+MgPyroxene2.0.Combined.Kappa
+MgPyroxene5.0.Combined.Kappa
+Enstatite0.1.Combined.Kappa
+Enstatite2.0.Combined.Kappa
+Silica0.1.Combined.Kappa
+Silica2.0.Combined.Kappa
+Silica5.0.Combined.Kappa

@@ -4,6 +4,7 @@
 # -*- coding: utf-8 -*-
 #%%
 import numpy as np
+from numba import njit
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.gridspec import GridSpec
@@ -41,102 +42,379 @@ au = 1.495978707e11 # (m)
 rsun = 6.9634e8 # (m)
 parsec = 3.0857e16 # (m)
 sigma_SB = 5.67037e-8 #(W m−2 K−4)
+C1 = 2*h/c0**2
+C2 = h/kboltz
 
 #Planck's law 
-def B_nu(T,nu):
-    #return 2.0*h*nu**3.0/(c0**2.0)/(np.exp(h*nu/(kboltz*T))-1)  #[W sr-1 m-2 Hz-1]
-    return 2.0*h*nu[:,None]**3.0/(c0**2.0)/(np.exp(h/kboltz*np.outer(nu,1.0/T))-1)
-      
-def get_component_fluxes(wl,param_dic,kappa,fit_mode,fluxdata):
+# def B_nu(T,nu):
+#     #return 2.0*h*nu**3.0/(c0**2.0)/(np.exp(h*nu/(kboltz*T))-1)  #[W sr-1 m-2 Hz-1]
+#     return 2.0*h*nu[:,None]**3.0/(c0**2.0)/(np.exp(h/kboltz*np.outer(nu,1.0/T))-1)
+
+@njit(fastmath=True)
+def B_nu_array(T, nu):
+    nnu = len(nu)
+    nT = len(T)
+    out = np.empty((nnu, nT))
+
+    for i in range(nnu):
+        for j in range(nT):
+            x = C2 * nu[i] / T[j]
+            out[i, j] = C1 * nu[i]**3 / (np.exp(x) - 1.0)
+
+    return out
+
+@njit(fastmath=True)
+def B_nu_scalar(T, nu):
+    nnu = len(nu)
+    out = np.empty(nnu)
+
+    for i in range(nnu):
+        x = C2 * nu[i] / T
+        out[i] = C1 * nu[i]**3 / (np.exp(x) - 1.0)
+
+    return out
+
+@njit(fastmath=True)
+def hlr_numba(radius, I_nu_map):
+    nnu, nr = I_nu_map.shape
+    hlr = np.zeros(nnu)
+
+    for i in range(nnu):
+        # compute cumulative flux
+        cum = np.zeros(nr)
+        for j in range(1, nr):
+            dr = radius[j] - radius[j-1]
+
+            f1 = 2*np.pi*radius[j-1]*I_nu_map[i, j-1]
+            f2 = 2*np.pi*radius[j]*I_nu_map[i, j]
+
+            cum[j] = cum[j-1] + 0.5 * (f1 + f2) * dr
+
+        total = cum[-1]
+        half = 0.5 * total
+
+        # find radius
+        for j in range(1, nr):
+            if cum[j] >= half:
+                f1 = cum[j-1]
+                f2 = cum[j]
+                r1 = radius[j-1]
+                r2 = radius[j]
+
+                t = (half - f1) / (f2 - f1)
+                hlr[i] = r1 + t * (r2 - r1)
+                break
+
+    return hlr
+
+def temp_at_hlr(radius, T_profile, hlr):
+    T_hlr = np.zeros_like(hlr)
+    for i in range(len(hlr)):
+        T_hlr[i] = np.interp(hlr[i], radius, T_profile)
+    return T_hlr
+
+import numpy as np
+
+def hlr_combined(
+    radius_dust, I_dust,
+    radius_rim, I_rim,
+    radius_mid, I_mid
+):
+    """
+    Compute half-light radius combining components with different radial grids.
+
+    Parameters
+    ----------
+    radius_* : 1D arrays
+        Radial grids for each component
+    I_* : 2D arrays (n_freq, n_radius)
+        Intensity maps
+
+    Returns
+    -------
+    hlr : array (n_freq,)
+        Half-light radius per frequency
+    """
+
+    def cumulative_flux(radius, I):
+        integrand = 2 * np.pi * radius[None, :] * I
+
+        cum = np.cumsum(
+            0.5 * (integrand[:, 1:] + integrand[:, :-1]) *
+            (radius[1:] - radius[:-1])[None, :],
+            axis=1
+        )
+
+        # prepend zero
+        cum = np.hstack([np.zeros((cum.shape[0], 1)), cum])
+        return cum
+
+    # cumulative flux per component
+    cum_dust = cumulative_flux(radius_dust, I_dust)
+    cum_rim  = cumulative_flux(radius_rim,  I_rim)
+    cum_mid  = cumulative_flux(radius_mid,  I_mid)
+
+    n_freq = I_dust.shape[0]
+    hlr = np.zeros(n_freq)
+
+    # common radius grid (union)
+    radius_all = np.sort(np.unique(
+        np.concatenate([radius_dust, radius_rim, radius_mid])
+    ))
+
+    for i in range(n_freq):
+
+        # interpolate cumulative flux onto common grid
+        F_d = np.interp(radius_all, radius_dust, cum_dust[i], left=0, right=cum_dust[i,-1])
+        F_r = np.interp(radius_all, radius_rim,  cum_rim[i],  left=0, right=cum_rim[i,-1])
+        F_m = np.interp(radius_all, radius_mid,  cum_mid[i],  left=0, right=cum_mid[i,-1])
+
+        F_tot = F_d + F_r + F_m
+
+        F_half = 0.5 * F_tot[-1]
+
+        # find crossing
+        idx = np.searchsorted(F_tot, F_half)
+
+        if idx == 0:
+            hlr[i] = radius_all[0]
+        else:
+            r1, r2 = radius_all[idx-1], radius_all[idx]
+            f1, f2 = F_tot[idx-1], F_tot[idx]
+
+            t = (F_half - f1) / (f2 - f1)
+            hlr[i] = r1 + t * (r2 - r1)
+
+    return hlr
+
+@njit(fastmath=True)
+def integrate_disk(I, radius):
+    nnu, nr = I.shape
+    out = np.zeros(nnu)
+
+    for i in range(nnu):
+        s = 0.0
+        for j in range(nr - 1):
+            r1 = radius[j]
+            r2 = radius[j+1]
+
+            dr = r2 - r1
+
+            f1 = 2.0*np.pi*r1*I[i,j]
+            f2 = 2.0*np.pi*r2*I[i,j+1]
+
+            s += 0.5 * (f1 + f2) * dr
+
+        out[i] = s
+    return out
+
+@njit(fastmath=True)
+def make_radius_grid(r_in, r_out, n_r,t):
+
+    #t = np.linspace(0.0, 1.0, n_r)
+    radius = np.empty(n_r)
+
+    ratio = r_out / r_in
+    for i in range(n_r):
+        radius[i] = r_in * ratio**t[i]
+
+    return radius
+
+@njit(fastmath=True)
+def temperature_profile(radius, T0, q):
+    n = len(radius)
+    out = np.empty(n)
+
+    inv_r0 = 1.0 / radius[0]
+
+    for i in range(n):
+        out[i] = T0 * (radius[i]*inv_r0)**q
+
+    return out
+
+@njit(fastmath=True)
+def model_numba(theta, freq, kappa_arr,flux_star,n_r,n_rim,x,x_rim):
+    # ---- unpack parameters ----
+    r_in      = theta[0]
+    r_out     = theta[1]
+
+    T_dust_in = theta[2]
+    q_dust    = theta[3]
+
+    T_mid_in  = theta[4]
+    q_mid     = theta[5]
+
+    T_rim_in  = theta[6]
+    q_rim     = theta[7]
+
+    scale     = theta[8] #1e26 / (dscale*dscale)
+    rim_width = theta[9]
+
+    # r_star    = theta[10]
+    # T_star    = theta[11]
+
+    # ---- grid ----
+    radius = make_radius_grid(r_in, r_out,n_r, x)
+    radius_rim = make_radius_grid(r_in, r_in+rim_width,n_rim, x_rim)
+
+    # ---- temperatures ----
+    T_dust = temperature_profile(radius, T_dust_in, q_dust)
+    T_mid  = temperature_profile(radius, T_mid_in, q_mid)
+    T_rim  = temperature_profile(radius_rim, T_rim_in, q_rim)
+
+    # ---- Planck ----
+    I_mid = B_nu_array(T_mid, freq)
+    I_rim = B_nu_array(T_rim, freq)
+    I_dust = B_nu_array(T_dust, freq)
+
+    # ---- integrate ----
+    flux_mid = scale*integrate_disk(I_mid, radius)
+    flux_rim = scale*integrate_disk(I_rim, radius_rim)
+
+    # ---- star ----
+    # Bstar = B_nu_scalar(T_star, freq)
+
+    # flux_star = np.empty(len(freq))
+    # for i in range(len(freq)):
+    #     flux_star[i] = scale * (r_star*rsun/au)**2 * np.pi * Bstar[i]
+
+    source_dust = integrate_disk(I_dust, radius)
+
+    # ---- build NNLS matrix ----
+    nnu, nk = kappa_arr.shape
+    dust_arr = np.empty((nnu, nk))
+
+    for i in range(nnu):
+        for j in range(nk):
+            dust_arr[i, j] = kappa_arr[i, j] * scale * source_dust[i]
+
+    return flux_star,flux_rim,flux_mid,dust_arr
+
+def get_component_fluxes(freq,param_dic,kappa,fit_mode,fluxdata):
 
     kappa_arr,kappa_label_list = kappa
+    theta = np.array([\
+        param_dic['r_in']['value'],
+        param_dic['r_out']['value'],
+        param_dic['T_dust_in']['value'],
+        param_dic['q_dust']['value'],
+        param_dic['T_midplane_in']['value'],
+        param_dic['q_midplane']['value'],
+        param_dic['T_rim_in']['value'],
+        param_dic['q_rim']['value'],
+        param_dic['scale']['value'],
+        param_dic['rim_width']['value'],
+        param_dic['r_star']['value'],
+        param_dic['T_star']['value'],
+    ])
+    n_r = param_dic['n_r']['value']
+    n_rim = param_dic['n_rim']['value']
+    flux_star = param_dic['flux_star']['value']
+    x = param_dic['x']['value']
+    x_rim = param_dic['x_rim']['value']
+
+    flux_star,flux_rim,flux_midplane,dust_arr = model_numba(theta, freq, kappa_arr,flux_star,n_r,n_rim,x,x_rim) #dust_arr
+
     # construct a radial grid, radius in au
-    radius_rim = np.logspace(np.log10(param_dic['r_in']['value']),
-        np.log10(param_dic['r_in']['value']+param_dic['rim_width']['value']),int(param_dic['n_rim']['value']), endpoint='true')
-    radius = np.logspace(np.log10(param_dic['r_in']['value']), #+param_dic['rim_width']['value']),
-        np.log10(param_dic['r_out']['value']),int(param_dic['n_r']['value']), endpoint='true')
-    # r_gap_in = param_dic['r_gap']['value']-param_dic['gap_width']['value']/2.0
-    # r_gap_out = param_dic['r_gap']['value']+param_dic['gap_width']['value']/2.0
-    # idx =  np.logical_or(radius_full<r_gap_in,radius_full>r_gap_out)
-    # radius = radius_full[idx]
+    # radius = param_dic['r_in']['value'] * (param_dic['r_out']['value']/param_dic['r_in']['value'])**param_dic['x']['value']
+    # radius_rim = param_dic['r_in']['value'] * ((param_dic['r_in']['value']+param_dic['rim_width']['value'])/param_dic['r_in']['value'])**param_dic['x_rim']['value']
+    ## r_gap_in = param_dic['r_gap']['value']-param_dic['gap_width']['value']/2.0
+    ## r_gap_out = param_dic['r_gap']['value']+param_dic['gap_width']['value']/2.0
+    ## idx =  np.logical_or(radius_full<r_gap_in,radius_full>r_gap_out)
+    ## radius = radius_full[idx]
 
     # temperature power laws
-    tprofile_dust = (param_dic['T_dust_in']['value']*(radius/radius[0])**param_dic['q_dust']['value'])    
-    tprofile_midplane = (param_dic['T_midplane_in']['value']*(radius/radius[0])**param_dic['q_midplane']['value'])
-    tprofile_rim = (param_dic['T_rim_in']['value']*(radius_rim/radius_rim[0])**param_dic['q_rim']['value'])
-    
-    freq = (c0*1e6)/wl
+    # tprofile_dust = (param_dic['T_dust_in']['value']*(radius/radius[0])**param_dic['q_dust']['value'])    
+    # tprofile_midplane = (param_dic['T_midplane_in']['value']*(radius/radius[0])**param_dic['q_midplane']['value'])
+    # tprofile_rim = (param_dic['T_rim_in']['value']*(radius_rim/radius_rim[0])**param_dic['q_rim']['value'])
 
     # dust optical depth
-    if fit_mode == 'full':
-        tau_sum = wl*0.0
-        for i,kappa_label in enumerate(kappa_label_list):
-            tau_sum += kappa_arr[:,i] * 10.0**param_dic[kappa_label]['value'] #param_dic['surfdens_dust']['value']
-        tau_arr = np.transpose(np.broadcast_to(tau_sum,(len(radius),len(wl))))
+    # if fit_mode == 'full':
+    #     tau_sum = np.zeros_like(freq)
+    #     for i,kappa_label in enumerate(kappa_label_list):
+    #         tau_sum += kappa_arr[:,i] * 10.0**param_dic[kappa_label]['value'] #param_dic['surfdens_dust']['value']
+    #     tau_arr = np.transpose(np.broadcast_to(tau_sum,(len(radius),len(freq))))
             
-    I_nu_map_rim = B_nu(tprofile_rim,freq)
-    I_nu_map_midplane = B_nu(tprofile_midplane,freq) 
+    # I_nu_map_rim = B_nu_array(tprofile_rim,freq)
+    # I_nu_map_midplane = B_nu_array(tprofile_midplane,freq) 
     # print(I_nu_map_midplane.shape) #(441, 100) 
 
+    # scale = 1e26/param_dic['dscale']['value']**2
     # now integrate over the disk surface to get the flux density
-    flux_midplane = 1e26/param_dic['dscale']['value']**2*np.trapz(2*np.pi*radius[None,:]*I_nu_map_midplane, radius[None,:],axis=-1)
-    flux_star = np.ravel(1e26/param_dic['dscale']['value']**2*(param_dic['r_star']['value']*rsun/au)**2*np.pi*B_nu(param_dic['T_star']['value'],freq))
-    flux_rim = 1e26/param_dic['dscale']['value']**2*np.trapz(2*np.pi*radius_rim[None,:]*I_nu_map_rim, radius_rim[None,:],axis=-1)
+    ## dr = np.gradient(radius)
+    ## weights = 2*np.pi*radius*dr
+    ## flux_midplane  = scale*np.sum(I_nu_map_midplane* weights, axis=1)
+    ## flux_midplane = scale*np.trapz(2*np.pi*radius[None,:]*I_nu_map_midplane, radius[None,:],axis=-1)
+    ## flux_midplane = scale*integrate_disk(I_nu_map_midplane, radius)
+    ## flux_rim = scale*np.trapz(2*np.pi*radius_rim[None,:]*I_nu_map_rim, radius_rim[None,:],axis=-1)
+    # flux_rim = scale*integrate_disk(I_nu_map_rim,radius_rim)
+    # flux_star = np.ravel(scale*(param_dic['r_star']['value']*rsun/au)**2*np.pi*B_nu_scalar(param_dic['T_star']['value'],freq))
 
-    if param_dic['n_z']['value'] == 2:
-        radius1 = radius[radius < param_dic['r_z']['value']]
-        radius2 = radius[radius >= param_dic['r_z']['value']]
-        #tprofile_dust1 = tprofile_dust[radius < param_dic['r_z']['value']]
-        #tprofile_dust2 = tprofile_dust[radius >= param_dic['r_z']['value']]
-        tprofile_dust1 = param_dic['T_dust1']['value']+0.0*tprofile_dust[radius < param_dic['r_z']['value']]
-        tprofile_dust2 = param_dic['T_dust2']['value']+0.0*tprofile_dust[radius >= param_dic['r_z']['value']]
-    else:
-        radius1 = radius 
-        tprofile_dust1 = tprofile_dust
-    if fit_mode == 'full':
-        # 2 zones not implemented in 'full' mode
-        I_nu_map_dust = tau_arr*(B_nu(tprofile_dust,freq)) #(1.0-np.exp(-tau_arr))
-        flux_dust = 1e26/param_dic['dscale']['value']**2*np.trapz(2*np.pi*radius[None,:]*I_nu_map_dust, radius[None,:],axis=-1)
-    else: #fit_mode: 'with_nnls'
-        source_fn1 = (1e26/param_dic['dscale']['value']**2*np.trapz(2*np.pi*radius1[None,:]*B_nu(tprofile_dust1,freq), radius1[None,:],axis=-1))
-        if param_dic['n_z']['value'] == 2:
-            source_fn2 = (1e26/param_dic['dscale']['value']**2*np.trapz(2*np.pi*radius2[None,:]*B_nu(tprofile_dust2,freq), radius2[None,:],axis=-1))
-            dust_arr = np.concatenate(((kappa_arr*source_fn1[:,None]),(kappa_arr*source_fn2[:,None])),axis=1)
-        else: 
-            dust_arr = kappa_arr*source_fn1[:,None]
-        try:
-            dust_coeffs = nnls(dust_arr ,fluxdata-flux_star-flux_rim-flux_midplane)[0]
-        except RuntimeError:
-            dust_coeffs = np.ones((len(kappa_label_list)))   
-        except ValueError:
-            dust_coeffs = np.ones((len(kappa_label_list))) 
-        for i,kappa_label in enumerate(kappa_label_list):
-            param_dic[kappa_label]['value'] = dust_coeffs[i]
-        flux_dust = dust_arr*dust_coeffs[None,:] #np.nansum( ,axis=1)
+
+    # if param_dic['n_z']['value'] == 2:
+    #     radius1 = radius[radius < param_dic['r_z']['value']]
+    #     radius2 = radius[radius >= param_dic['r_z']['value']]
+    #     #tprofile_dust1 = tprofile_dust[radius < param_dic['r_z']['value']]
+    #     #tprofile_dust2 = tprofile_dust[radius >= param_dic['r_z']['value']]
+    #     tprofile_dust1 = param_dic['T_dust1']['value']+0.0*tprofile_dust[radius < param_dic['r_z']['value']]
+    #     tprofile_dust2 = param_dic['T_dust2']['value']+0.0*tprofile_dust[radius >= param_dic['r_z']['value']]
+    # else:
+    #     radius1 = radius 
+    #     tprofile_dust1 = tprofile_dust
+    # if fit_mode == 'full':
+    #     # 2 zones not implemented in 'full' mode
+    #     I_nu_map_dust = tau_arr*(B_nu_array(tprofile_dust,freq)) #(1.0-np.exp(-tau_arr))
+    #     # flux_dust = scale*np.trapz(2*np.pi*radius[None,:]*I_nu_map_dust, radius[None,:],axis=-1)
+    #     flux_dust = scale*integrate_disk(I_nu_map_dust,radius)
+    # else: #fit_mode: 'with_nnls'
+    #     #print('ha')
+    #     # source_fn1 = (scale*np.trapz(2*np.pi*radius1[None,:]*B_nu_array(tprofile_dust1,freq), radius1[None,:],axis=-1))
+    #     source_fn1 = scale*integrate_disk(B_nu_array(tprofile_dust1,freq),radius1)
+    #     if param_dic['n_z']['value'] == 2:
+    #         # source_fn2 = (scale*np.trapz(2*np.pi*radius2[None,:]*B_nu_array(tprofile_dust2,freq), radius2[None,:],axis=-1))
+    #         source_fn2 = scale*integrate_disk(B_nu_array(tprofile_dust2,freq),radius2)
+    #         dust_arr = np.concatenate(((kappa_arr*source_fn1[:,None]),(kappa_arr*source_fn2[:,None])),axis=1)
+    #     else: 
+    #         dust_arr = kappa_arr*source_fn1[:,None]
+    try:
+        #print(fluxdata*0.0-0.0*flux_star-0.0*flux_rim-1.0*flux_midplane) #-flux_star-flux_rim-flux_midplane)
+        dust_coeffs = nnls(dust_arr ,fluxdata-flux_star-flux_rim-flux_midplane)[0]
+        #print(dust_coeffs)
+    except RuntimeError:
+        dust_coeffs = np.ones((len(kappa_label_list)))   
+    except ValueError:
+        dust_coeffs = np.ones((len(kappa_label_list))) 
+    #print(kappa_label_list)
+    for i,kappa_label in enumerate(kappa_label_list):
+        param_dic[kappa_label]['value'] = dust_coeffs[i]
+        #print(param_dic[kappa_label]['value'])
+    flux_dust = dust_arr*dust_coeffs[None,:] #np.nansum( ,axis=1)
+    # flux_dust = kappa_arr*dust_coeffs[None,:]*source_dust[:,None]
+    #print('inside:',flux_dust)
 
     return flux_dust,flux_midplane,flux_star,flux_rim
 
-def model_fn(wl,param_dic,kappa,fit_mode,fluxdata):
+def model_fn(freq,param_dic,kappa,fit_mode,fluxdata):
     #experimental: de-extinct the data
-    flux_new = fluxdata/ext.extinguish(wl*10000*u.AA, Av=param_dic['AV']['value'])
-    fluxdata = flux_new
-    flux_dust,flux_midplane,flux_star,flux_rim = get_component_fluxes(wl,param_dic,kappa,fit_mode,fluxdata)
+    #flux_new = fluxdata/ext.extinguish(wl*10000*u.AA, Av=param_dic['AV']['value'])
+    #fluxdata = flux_new
+    flux_dust,flux_midplane,flux_star,flux_rim = get_component_fluxes(freq,param_dic,kappa,fit_mode,fluxdata)
     # print(flux_dust+flux_midplane+flux_star+flux_rim)
     return np.nansum(flux_dust,axis=1)+flux_midplane+flux_star+flux_rim
 
 # parametrisation (for dynesty)
-def prior_transform(uniform_samples,param_dic,free_param_labels):
+def prior_transform(uniform_samples,priors): #param_dic,free_param_labels):
     """The transformation for uniform sampled values to the
     uniform parameter space."""
-    priors = np.array([(param_dic[key]['limits'][0], param_dic[key]['limits'][1]) for key in free_param_labels])
+    #priors = np.array([(param_dic[key]['limits'][0], param_dic[key]['limits'][1]) for key in free_param_labels])
     return priors[:, 0] + (priors[:, 1] - priors[:, 0])*uniform_samples
 
 # for dynesty
-def lnlike(free_param_values, wl, fluxdata, fluxerr,other_args):
+def lnlike(free_param_values, freq, fluxdata, fluxerr,other_args):
     param_dic,free_param_labels,kappa,fit_mode = other_args
     for (pvalue,label) in zip(free_param_values,free_param_labels):
         param_dic[label]['value'] = pvalue
-    model = model_fn(wl,param_dic,kappa,fit_mode,fluxdata)
+    model = model_fn(freq,param_dic,kappa,fit_mode,fluxdata)
     #idx = (model-fluxdata) > 0.0
     #if np.any(idx):
     #    chi2_1 = np.nansum((fluxdata[idx]-model[idx])**2/((fluxerr[idx]/10.0)**2))
@@ -148,12 +426,12 @@ def lnlike(free_param_values, wl, fluxdata, fluxerr,other_args):
     #    chi2_2 = 0.0
     #return -0.5*((chi2_1+chi2_2)/len(fluxdata))
     #experimental: de-extinct the data
-    flux_new = fluxdata/ext.extinguish(wl*10000*u.AA, Av=param_dic['AV']['value'])
-    fluxdata = flux_new
-    return -0.5*(np.nansum((fluxdata-model)**2/(fluxerr**2) )/len(fluxdata))
+    #flux_new = fluxdata/ext.extinguish(wl*10000*u.AA, Av=param_dic['AV']['value'])
+    #fluxdata = flux_new
+    return -0.5 * np.nansum((fluxdata - model)**2 / fluxerr**2) / fluxdata.size
 
 # for emcee
-def lnprob(free_param_values, wl, fluxdata, fluxerr,other_args):
+def lnprob(free_param_values, freq, fluxdata, fluxerr,other_args):
     param_dic,free_param_labels,kappa = other_args
     for (pvalue,label) in zip(free_param_values,free_param_labels):
         low, up =  param_dic[label]['limits']
@@ -163,7 +441,7 @@ def lnprob(free_param_values, wl, fluxdata, fluxerr,other_args):
         param_dic[label]['value'] = pvalue
         #print(label,pvalue ,param_dic[label]['value'])
 
-    model = model_fn(wl,param_dic,kappa)
+    model = model_fn(freq,param_dic,kappa)
     # print(fluxdata-model)
     # print(fluxdata)
     # print(model)
@@ -302,10 +580,10 @@ def plot_fit(output_path,wl,fluxdata,fluxerr,model_fluxes,kappa_label_list,plot_
     axr = fig.add_subplot(gs1[1])
     axb = fig.add_subplot(gs2[0])
 
-    if 'AV' in param_dic:
-        #experimental: de-extinct the data
-        flux_new = fluxdata/ext.extinguish(wl*10000*u.AA, Av=param_dic['AV']['value'])
-        fluxdata = flux_new 
+    #if 'AV' in param_dic:
+    #    #experimental: de-extinct the data
+    #    flux_new = fluxdata/ext.extinguish(wl*10000*u.AA, Av=param_dic['AV']['value'])
+    #    fluxdata = flux_new 
     
     l0, = ax.plot(wl,fluxdata,'-',label='Data',lw=2,color='black',zorder=1.4) #'+'
     l05 = ax.fill_between(wl, fluxdata-fluxerr, fluxdata+fluxerr, 
@@ -448,7 +726,7 @@ def plot_fit(output_path,wl,fluxdata,fluxerr,model_fluxes,kappa_label_list,plot_
         plt.savefig(output_path, dpi=200,bbox_inches="tight")
     #plt.show()
 
-def read_fit_param_file(best_params_file_path):
+def read_fit_param_file(best_params_file_path,wl):
     param_dic = {}
     kappa_label_list = []    
     free_param_start = False
@@ -480,8 +758,7 @@ def read_fit_param_file(best_params_file_path):
                 # gn = re.sub(r'[0-9.]+', '', get_short_label(label))
                 gn = (get_color_label(label))[1]
                 gs = (get_color_label(label))[2]
-                param_dic[label] = {'value':float((line.split())[1]),'limits':[np.nan,np.nan],'free':False,
-                                                'grain_size':gs,'grain_name':gn}
+                param_dic[label] = {'value':float((line.split())[1]),'limits':[np.nan,np.nan],'free':False,'grain_size':gs,'grain_name':gn}
             if dust_param_start:
                 label = (line.split())[0].replace(':','')
                 kappa_label_list.append(label)
@@ -500,7 +777,58 @@ def read_fit_param_file(best_params_file_path):
                 dust_param_start = True
             if line.startswith('Input opacity files'):
                 opac_flst_start = True
+        
+        if not(not wl):
+            freq = (c0*1e6)/wl
+        else:
+            freq = (c0*1e6)/np.array([1.0,10.0])
+        param_dic['n_r']['value'] = int(param_dic['n_r']['value'])
+        param_dic['n_rim']['value'] = int(param_dic['n_rim']['value'])
+        #precomputed dimensionless radial grids
+        x = np.linspace(0.0, 1.0, param_dic['n_r']['value'])
+        x_rim = np.linspace(0.0, 1.0,  param_dic['n_rim']['value'])
+        param_dic['x'] =        {'value':x,'limits':[0.0,1.0],'free':False}
+        param_dic['x_rim'] =        {'value':x_rim,'limits':[0.0,1.0],'free':False}
+
+        #precomputed stellar spectrum
+        scale = 1e26 / param_dic['dscale']['value']**2
+        param_dic['scale'] = {'value':scale,'limits':[-1.0,1.0],'free':False}
+        Bstar = B_nu_scalar(param_dic['T_star']['value'], freq)
+        flux_star = scale * (param_dic['r_star']['value']*rsun/au)**2 * np.pi * Bstar
+        param_dic['flux_star'] = {'value':flux_star,'limits':[0.0,1.0],'free':False}
+
     return param_dic,kappa_label_list,opac_fname_list,chi2r
+
+# opac_type =  'Q_abs' or 'kappa_abs'
+def read_kappa_arr(opac_dir,opac_fname_list,opac_type,wl):
+    kappa_arr = np.zeros((len(wl),len(opac_fname_list)))
+    for i,fname in enumerate(opac_fname_list):
+        print(fname,end=' ')
+        if opac_type == 'Q_abs':
+            N,gsize,gdens=np.loadtxt(opac_dir+'/'+fname,max_rows=1)
+        n_comment_lines = 0
+        with open(opac_dir+'/'+fname) as f:
+            for line in f:
+                if line.startswith('#'):
+                    n_comment_lines += 1
+                else:
+                    break
+        if opac_type == 'Q_abs':
+            wl_Q,opac_data = np.loadtxt(opac_dir+'/'+fname, comments="#", skiprows=n_comment_lines+2, usecols=(0,1), unpack=True)
+            kappa_arr[:,i] = np.interp(wl, wl_Q, 0.1* opac_data* 3.0 / (4.0 * gsize * 1e-4 * gdens)) #m^2/kg
+        if opac_type == 'kappa_abs':
+            # GRF opacity files: lambda[um], kappa_tot, kappa_abs, kappa_sca
+            # optool opacity files: lambda[um]  kabs [cm^2/g]  ksca [cm^2/g]    g_asymmetry
+            if n_comment_lines > 20:
+                usec = (0,1) # optool opacity file
+                print('optool opacity file')
+            else: 
+                usec = (0,2) #GRF opacity files
+                print('GRF opacity file')
+            wl_Q,opac_data = np.loadtxt(opac_dir+'/'+fname, comments="#", skiprows=n_comment_lines+2, usecols=usec, unpack=True)
+            kappa_arr[:,i] = np.interp(wl, wl_Q, 0.1* opac_data) #convert to m^2/kg
+    return kappa_arr
+
 # %%
 
 def nan_helper(y):
@@ -519,3 +847,8 @@ def nan_helper(y):
     """
 
     return np.isnan(y), lambda z: z.nonzero()[0]
+
+def find_nearest_idx(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
