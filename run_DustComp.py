@@ -56,7 +56,7 @@ wl_limits =  [4.9,27.0]  #[7.5,13.5] #um
 # Here are some options in the run name syntax:
 # - opacity set: 
 #     newDHS: corresponds to the DHS_nat set in the Varga+2026 paper
-#     oldDHS: corresponds to the DHS_synt set in the Varga+2026 paper 
+#     oldDHS: corresponds to the DHS_synth set in the Varga+2026 paper 
 #     GRF: GRF set of opacities
 #     custom_mix: custom set given in the opac_fname_list_custom_mix list
 # - incluion of SiO2:
