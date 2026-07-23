@@ -2,7 +2,12 @@
 
 A code for infrared spectral decomposition of dust spectral features. 
 
-## Instructions
+## Installation
+
+1. Clone or download the repository from GitHub.
+2. Install the required Python packages (see Requirements below).
+
+## Usage instructions
 
 1. Create your own setup_...py file, or adapt the included setup_minds.py for your needs.
 2. In the setup file, specify the following:
@@ -13,28 +18,6 @@ A code for infrared spectral decomposition of dust spectral features.
 4. Run the code: python3 run_DustComp.py
 
 The package contains example data and results from the "MINDS survey of silicates in T Tauri disks" (Varga et al. 2026, https://ui.adsabs.harvard.edu/abs/2026A%26A...711A.125V/abstract)
-
-## Requirements
-
-### Standard Library (Built-in — No installation required)
-* `dataclasses`, `importlib`, `multiprocessing`, `os`, `pathlib`, `pickle`, `time`, `warnings`
-
-### Common Data Science Packages
-Likely already in your environment, but install if missing:
-```bash
-pip install numpy matplotlib scipy
-```
-
-### Specialized Dependencies (Must be installed)
-These are specific to this project and likely need installation:
-* **`numba`**: JIT compiler for high-performance execution
-* **`corner`**: For visualizing multi-dimensional posterior distributions
-* **`dynesty`**: Dynamic Nested Sampling library
-
-```bash
-pip install numba corner dynesty
-```
-
 
 ## Dependencies
 
