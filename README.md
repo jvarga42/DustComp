@@ -3,8 +3,7 @@
 A code for infrared spectral decomposition of dust spectral features. 
 
 Instructions
-  1) Create your own setup_...py file, or adapt this file for your
-     needs.
+  1) Create your own setup_...py file, or adapt the included setup_minds.py for your needs.
   2) In the setup file, specify the following:
          - fitter options
          - input data
