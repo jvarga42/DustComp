@@ -28,8 +28,3 @@ The package contains example data and results from the "MINDS survey of silicate
 | `numba` | **Performance** | JIT compiler (`pip install numba`) |
 | `corner` | **Visualization** | Diagnostic corner plots (`pip install corner`) |
 | `dynesty` | **Sampling** | Nested sampling (`pip install dynesty`) |
-
-### One-line Installation
-```bash
-pip install numpy matplotlib scipy numba corner dynesty
-
