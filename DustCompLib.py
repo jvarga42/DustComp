@@ -387,6 +387,7 @@ def get_color_label(kappa_label):
         ['Am_Mgolivine_Jae',r'Am. $\mathrm{Mg}_{2}\mathrm{SiO}_{4}$','blue'],
         ['Am_Mgol_Jae',r'Am. $\mathrm{Mg}_{2}\mathrm{SiO}_{4}$','blue'],
         ['MgOlivine',r'Am. $\mathrm{Mg}_{2}\mathrm{SiO}_{4}$','blue'],
+        ['Am_Mg1.86SiO3.86',r'Am. $\mathrm{Mg}_{1.9}\mathrm{SiO}_{3.4}$','blue'],
         ['Am_MgFeolivine_Dor','Am. MgFe-olivine','royalblue'],
         ['Am_Ol-Mg50','Am. MgFe-olivine','royalblue'],
         ['Am_Ol-Mg40','Am. MgFe-olivine','royalblue'],

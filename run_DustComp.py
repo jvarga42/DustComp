@@ -587,7 +587,7 @@ for run_name in setup.run_names:
 # and calculate uncertainties of the mass fractions
 ################################################################
 
-if load_previous_results:
+if setup.load_previous_results:
     from tqdm import tqdm
 
     run_name = '36_newDHS_Qtemp_300K_with_ann_SiO2_nobigcrystals_3gs'
