@@ -19,7 +19,7 @@ A code for infrared spectral decomposition of dust spectral features.
 
 The package contains example data and results from the "MINDS survey of silicates in T Tauri disks" (Varga et al. 2026, https://ui.adsabs.harvard.edu/abs/2026A%26A...711A.125V/abstract)
 
-## Dependencies
+## Requirements
 
 | Module | Category | Notes / Installation |
 | :--- | :--- | :--- |
