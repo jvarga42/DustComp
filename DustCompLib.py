@@ -8,19 +8,13 @@ from numba import njit
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.gridspec import GridSpec
-import emcee
-import corner
-import dynesty
-from dynesty import utils as dyfunc
-from dynesty import plotting as dyplot
-import multiprocessing as mp
-from scipy.optimize import nnls
-from scipy import stats
 from matplotlib.patches import Rectangle
 import matplotlib.ticker as plticker
-from dust_extinction.averages import G21_MWAvg
-ext = G21_MWAvg()
-import astropy.units as u
+from scipy.optimize import nnls
+# from dust_extinction.averages import G21_MWAvg
+# ext = G21_MWAvg()
+# import astropy.units as u
+from pathlib import Path
 
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
@@ -44,11 +38,6 @@ parsec = 3.0857e16 # (m)
 sigma_SB = 5.67037e-8 #(W m−2 K−4)
 C1 = 2*h/c0**2
 C2 = h/kboltz
-
-#Planck's law 
-# def B_nu(T,nu):
-#     #return 2.0*h*nu**3.0/(c0**2.0)/(np.exp(h*nu/(kboltz*T))-1)  #[W sr-1 m-2 Hz-1]
-#     return 2.0*h*nu[:,None]**3.0/(c0**2.0)/(np.exp(h/kboltz*np.outer(nu,1.0/T))-1)
 
 @njit(fastmath=True)
 def B_nu_array(T, nu):
@@ -315,69 +304,7 @@ def get_component_fluxes(freq,param_dic,kappa,fit_mode,fluxdata):
 
     flux_star,flux_rim,flux_midplane,dust_arr = model_numba(theta, freq, kappa_arr,flux_star,n_r,n_rim,x,x_rim) #dust_arr
 
-    # construct a radial grid, radius in au
-    # radius = param_dic['r_in']['value'] * (param_dic['r_out']['value']/param_dic['r_in']['value'])**param_dic['x']['value']
-    # radius_rim = param_dic['r_in']['value'] * ((param_dic['r_in']['value']+param_dic['rim_width']['value'])/param_dic['r_in']['value'])**param_dic['x_rim']['value']
-    ## r_gap_in = param_dic['r_gap']['value']-param_dic['gap_width']['value']/2.0
-    ## r_gap_out = param_dic['r_gap']['value']+param_dic['gap_width']['value']/2.0
-    ## idx =  np.logical_or(radius_full<r_gap_in,radius_full>r_gap_out)
-    ## radius = radius_full[idx]
-
-    # temperature power laws
-    # tprofile_dust = (param_dic['T_dust_in']['value']*(radius/radius[0])**param_dic['q_dust']['value'])    
-    # tprofile_midplane = (param_dic['T_midplane_in']['value']*(radius/radius[0])**param_dic['q_midplane']['value'])
-    # tprofile_rim = (param_dic['T_rim_in']['value']*(radius_rim/radius_rim[0])**param_dic['q_rim']['value'])
-
-    # dust optical depth
-    # if fit_mode == 'full':
-    #     tau_sum = np.zeros_like(freq)
-    #     for i,kappa_label in enumerate(kappa_label_list):
-    #         tau_sum += kappa_arr[:,i] * 10.0**param_dic[kappa_label]['value'] #param_dic['surfdens_dust']['value']
-    #     tau_arr = np.transpose(np.broadcast_to(tau_sum,(len(radius),len(freq))))
-            
-    # I_nu_map_rim = B_nu_array(tprofile_rim,freq)
-    # I_nu_map_midplane = B_nu_array(tprofile_midplane,freq) 
-    # print(I_nu_map_midplane.shape) #(441, 100) 
-
-    # scale = 1e26/param_dic['dscale']['value']**2
-    # now integrate over the disk surface to get the flux density
-    ## dr = np.gradient(radius)
-    ## weights = 2*np.pi*radius*dr
-    ## flux_midplane  = scale*np.sum(I_nu_map_midplane* weights, axis=1)
-    ## flux_midplane = scale*np.trapz(2*np.pi*radius[None,:]*I_nu_map_midplane, radius[None,:],axis=-1)
-    ## flux_midplane = scale*integrate_disk(I_nu_map_midplane, radius)
-    ## flux_rim = scale*np.trapz(2*np.pi*radius_rim[None,:]*I_nu_map_rim, radius_rim[None,:],axis=-1)
-    # flux_rim = scale*integrate_disk(I_nu_map_rim,radius_rim)
-    # flux_star = np.ravel(scale*(param_dic['r_star']['value']*rsun/au)**2*np.pi*B_nu_scalar(param_dic['T_star']['value'],freq))
-
-
-    # if param_dic['n_z']['value'] == 2:
-    #     radius1 = radius[radius < param_dic['r_z']['value']]
-    #     radius2 = radius[radius >= param_dic['r_z']['value']]
-    #     #tprofile_dust1 = tprofile_dust[radius < param_dic['r_z']['value']]
-    #     #tprofile_dust2 = tprofile_dust[radius >= param_dic['r_z']['value']]
-    #     tprofile_dust1 = param_dic['T_dust1']['value']+0.0*tprofile_dust[radius < param_dic['r_z']['value']]
-    #     tprofile_dust2 = param_dic['T_dust2']['value']+0.0*tprofile_dust[radius >= param_dic['r_z']['value']]
-    # else:
-    #     radius1 = radius 
-    #     tprofile_dust1 = tprofile_dust
-    # if fit_mode == 'full':
-    #     # 2 zones not implemented in 'full' mode
-    #     I_nu_map_dust = tau_arr*(B_nu_array(tprofile_dust,freq)) #(1.0-np.exp(-tau_arr))
-    #     # flux_dust = scale*np.trapz(2*np.pi*radius[None,:]*I_nu_map_dust, radius[None,:],axis=-1)
-    #     flux_dust = scale*integrate_disk(I_nu_map_dust,radius)
-    # else: #fit_mode: 'with_nnls'
-    #     #print('ha')
-    #     # source_fn1 = (scale*np.trapz(2*np.pi*radius1[None,:]*B_nu_array(tprofile_dust1,freq), radius1[None,:],axis=-1))
-    #     source_fn1 = scale*integrate_disk(B_nu_array(tprofile_dust1,freq),radius1)
-    #     if param_dic['n_z']['value'] == 2:
-    #         # source_fn2 = (scale*np.trapz(2*np.pi*radius2[None,:]*B_nu_array(tprofile_dust2,freq), radius2[None,:],axis=-1))
-    #         source_fn2 = scale*integrate_disk(B_nu_array(tprofile_dust2,freq),radius2)
-    #         dust_arr = np.concatenate(((kappa_arr*source_fn1[:,None]),(kappa_arr*source_fn2[:,None])),axis=1)
-    #     else: 
-    #         dust_arr = kappa_arr*source_fn1[:,None]
     try:
-        #print(fluxdata*0.0-0.0*flux_star-0.0*flux_rim-1.0*flux_midplane) #-flux_star-flux_rim-flux_midplane)
         dust_coeffs = nnls(dust_arr ,fluxdata-flux_star-flux_rim-flux_midplane)[0]
         #print(dust_coeffs)
     except RuntimeError:
@@ -415,38 +342,28 @@ def lnlike(free_param_values, freq, fluxdata, fluxerr,other_args):
     for (pvalue,label) in zip(free_param_values,free_param_labels):
         param_dic[label]['value'] = pvalue
     model = model_fn(freq,param_dic,kappa,fit_mode,fluxdata)
-    #idx = (model-fluxdata) > 0.0
-    #if np.any(idx):
-    #    chi2_1 = np.nansum((fluxdata[idx]-model[idx])**2/((fluxerr[idx]/10.0)**2))
-    #else:
-    #    chi2_1 = 0.0
-    #if np.any(~idx):
-    #    chi2_2 = np.nansum((fluxdata[~idx]-model[~idx])**2/(fluxerr[~idx]**2) )
-    #else:
-    #    chi2_2 = 0.0
-    #return -0.5*((chi2_1+chi2_2)/len(fluxdata))
     #experimental: de-extinct the data
     #flux_new = fluxdata/ext.extinguish(wl*10000*u.AA, Av=param_dic['AV']['value'])
     #fluxdata = flux_new
     return -0.5 * np.nansum((fluxdata - model)**2 / fluxerr**2) / fluxdata.size
 
-# for emcee
-def lnprob(free_param_values, freq, fluxdata, fluxerr,other_args):
-    param_dic,free_param_labels,kappa = other_args
-    for (pvalue,label) in zip(free_param_values,free_param_labels):
-        low, up =  param_dic[label]['limits']
-        #print(label,low ,pvalue , up)
-        if not low < pvalue < up:
-            return -np.inf
-        param_dic[label]['value'] = pvalue
-        #print(label,pvalue ,param_dic[label]['value'])
+# # for emcee
+# def lnprob(free_param_values, freq, fluxdata, fluxerr,other_args):
+#     param_dic,free_param_labels,kappa = other_args
+#     for (pvalue,label) in zip(free_param_values,free_param_labels):
+#         low, up =  param_dic[label]['limits']
+#         #print(label,low ,pvalue , up)
+#         if not low < pvalue < up:
+#             return -np.inf
+#         param_dic[label]['value'] = pvalue
+#         #print(label,pvalue ,param_dic[label]['value'])
 
-    model = model_fn(freq,param_dic,kappa)
-    # print(fluxdata-model)
-    # print(fluxdata)
-    # print(model)
-    # print((np.sum((fluxdata-model)**2/(fluxerr**2) )/len(fluxdata)))
-    return -0.5*(np.nansum((fluxdata-model)**2/(fluxerr**2) )/len(fluxdata))
+#     model = model_fn(freq,param_dic,kappa)
+#     # print(fluxdata-model)
+#     # print(fluxdata)
+#     # print(model)
+#     # print((np.sum((fluxdata-model)**2/(fluxerr**2) )/len(fluxdata)))
+#     return -0.5*(np.nansum((fluxdata-model)**2/(fluxerr**2) )/len(fluxdata))
 
 def get_linestyle(kappa_label):
     if 'rv0.1' in kappa_label or '0.10um' in kappa_label or '0.1.' in kappa_label:
@@ -720,7 +637,7 @@ def plot_fit(output_path,wl,fluxdata,fluxerr,model_fluxes,kappa_label_list,plot_
     # print(xlabels, yvalues)
     #print(output_path)
     plt.tight_layout() #pad=0.5)
-    if 'pdf' in output_path:
+    if 'pdf' in str(output_path):
         plt.savefig(output_path, dpi=200,bbox_inches="tight")
     else:
         plt.savefig(output_path, dpi=200,bbox_inches="tight")
