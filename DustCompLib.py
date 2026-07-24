@@ -385,7 +385,7 @@ def get_linestyle(kappa_label):
 def get_color_label(kappa_label):
     color_table = [\
         ['Am_Mgolivine_Jae',r'Am. $\mathrm{Mg}_{2}\mathrm{SiO}_{4}$','blue'],
-        ['Am_Mgol_Jae',r'Am. $\mathrm{Mg}_{2}\mathrm{SiO}_{4}$','blue'],
+        ['Am_Mgol',r'Am. $\mathrm{Mg}_{2}\mathrm{SiO}_{4}$','blue'],
         ['MgOlivine',r'Am. $\mathrm{Mg}_{2}\mathrm{SiO}_{4}$','blue'],
         ['Am_Mg1.86SiO3.86',r'Am. $\mathrm{Mg}_{1.9}\mathrm{SiO}_{3.4}$','blue'],
         ['Am_MgFeolivine_Dor','Am. MgFe-olivine','royalblue'],
@@ -393,7 +393,7 @@ def get_color_label(kappa_label):
         ['Am_Ol-Mg40','Am. MgFe-olivine','royalblue'],
         ['Fay_Fabian','Fayalite','deepskyblue'],
         ['Am_Mgpyroxene_Dor',r'Am. MgSiO$_3$','darkorange'],
-        ['Am_Mgpyr_Dor',r'Am. MgSiO$_3$','darkorange'],
+        ['Am_Mgpyr',r'Am. MgSiO$_3$','darkorange'],
         ['MgPyroxene',r'Am. MgSiO$_3$','darkorange'],
         ['Am_MgFepyroxene_Dor','Am. MgFe-pyroxene','gold'],
         ['MgFepyroxene_Dor','Am. MgFe-pyroxene','gold'],
